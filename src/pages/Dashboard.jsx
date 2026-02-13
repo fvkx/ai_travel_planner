@@ -14,6 +14,7 @@ export default function Dashboard() {
   const [plan, setPlan] = useState('');
   const [loading, setLoading] = useState(false);
   const [extractedPlaces, setExtractedPlaces] = useState([]);
+  const [hotels, setHotels] = useState([]);
 
   const handleGenerate = async () => {
     if (!formData.destination || !formData.startDate) {
@@ -37,24 +38,33 @@ export default function Dashboard() {
     }
   };
 
-  // Simple function to extract place names from the itinerary
-  const extractPlacesFromPlan = (text) => {
-    const lines = text.split('\n');
+  // Extract place names from the itinerary (handles both JSON and plain text)
+  const extractPlacesFromPlan = (plan) => {
     const places = [];
     
-    lines.forEach(line => {
-      // Look for lines that mention specific places (simple pattern matching)
-      if (line.match(/visit|explore|go to|check out|head to/i)) {
-        // Extract the place name (this is a simple implementation)
-        const match = line.match(/(?:visit|explore|go to|check out|head to)\s+([^.,!?]+)/i);
-        if (match && match[1]) {
-          const placeName = match[1].trim();
-          if (placeName.length > 3 && placeName.length < 50) {
-            places.push(placeName);
+    // If plan is a JSON object with structured data
+    if (typeof plan === 'object' && plan.days && Array.isArray(plan.days)) {
+      plan.days.forEach(day => {
+        if (day.places && Array.isArray(day.places)) {
+          places.push(...day.places);
+        }
+      });
+    } 
+    // If plan is a string, parse it as before
+    else if (typeof plan === 'string') {
+      const lines = plan.split('\n');
+      lines.forEach(line => {
+        if (line.match(/visit|explore|go to|check out|head to/i)) {
+          const match = line.match(/(?:visit|explore|go to|check out|head to)\s+([^.,!?]+)/i);
+          if (match && match[1]) {
+            const placeName = match[1].trim();
+            if (placeName.length > 3 && placeName.length < 50) {
+              places.push(placeName);
+            }
           }
         }
-      }
-    });
+      });
+    }
     
     // Return unique places, limit to 10
     return [...new Set(places)].slice(0, 10);
@@ -180,10 +190,20 @@ export default function Dashboard() {
           filter: invert(40%);
         }
         
+        .sticky-sidebar {
+          position: sticky;
+          top: 20px;
+          z-index: 10;
+          height: fit-content;
+          max-height: calc(100vh - 140px);
+          overflow-y: auto;
+        }
+        
         @media (max-width: 991px) {
           .sticky-sidebar {
-            position: relative !important;
-            top: 0 !important;
+            position: relative;
+            top: 0;
+            max-height: none;
           }
         }
         
@@ -204,9 +224,9 @@ export default function Dashboard() {
               </div>
               <div>
                 <h1 className="h5 h4-md mb-0 fw-bold gradient-text">
-                  AI Travel Planner
+                  ThinkSpots AI
                 </h1>
-                <small className="text-muted d-none d-sm-inline">Create your perfect itinerary with map</small>
+                <small className="text-muted d-none d-sm-inline">Generate your perfect itinerary with map</small>
               </div>
             </div>
           </div>
@@ -355,12 +375,14 @@ export default function Dashboard() {
                         <MapPreview 
                           destination={formData.destination} 
                           places={extractedPlaces}
+                          interests={formData.interests}
+                          onHotelsFound={setHotels}
                         />
                       </div>
                     )}
                     
                     {/* Generated Plan */}
-                    <GeneratedPlan plan={plan} destination={formData.destination} />
+                    <GeneratedPlan plan={plan} destination={formData.destination} hotels={hotels} />
                   </>
                 )}
 
