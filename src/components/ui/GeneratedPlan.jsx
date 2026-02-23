@@ -1,6 +1,9 @@
-import { Calendar, MapPin, Coffee, Camera, Download, Share2 } from 'lucide-react';
+import { Calendar, MapPin, Coffee, Camera, Download, Share2, Trash, Copy } from 'lucide-react';
+import { savePlan, fetchPlans } from '../../services/apiService';
+import { deletePlan, deleteAllPlans } from '../../services/apiService';
+import { useState } from 'react';
 
-export default function GeneratedPlan({ plan, destination, hotels = [] }) {
+export default function GeneratedPlan({ plan, destination, hotels = [], startDate = '', days = 0, interests = '', prompt = '' }) {
   // Handle structured JSON format
   const formatPlanAsDocument = () => {
     if (typeof plan === 'object' && plan.days && Array.isArray(plan.days)) {
@@ -11,6 +14,74 @@ export default function GeneratedPlan({ plan, destination, hotels = [] }) {
 
   const planData = formatPlanAsDocument();
 
+  // Reusable preview component for rendering saved plans nicely
+  const PlanPreview = ({ planObj, compact = false }) => {
+    if (!planObj || !planObj.days) return <div className="text-muted">No plan data</div>;
+
+    return (
+      <div>
+        {planObj.title && <h6 className="fw-bold mb-2">{planObj.title}</h6>}
+        {planObj.summary && <p className="text-muted small mb-3">{planObj.summary}</p>}
+
+        <div className="row g-3">
+          {planObj.days.map((d) => (
+            <div key={d.day} className={compact ? 'col-12' : 'col-12 col-md-6'}>
+              <div className="p-3 rounded-3 border h-100" style={{ background: compact ? '#ffffff' : 'linear-gradient(180deg,#fff,#fbfdff)' }}>
+                <div className="d-flex justify-content-between align-items-start mb-2">
+                  <div>
+                    <div className="small text-muted">Day {d.day}</div>
+                    <div className="fw-semibold">{d.title}</div>
+                  </div>
+                  <div className="text-end small text-muted">{d.places?.length ? d.places.length + ' places' : ''}</div>
+                </div>
+
+                {d.activities?.length > 0 && (
+                  <div className="mb-2">
+                    <div className="text-secondary small fw-semibold">Activities</div>
+                    <ul className="mb-0 mt-1 small">
+                      {d.activities.map((a, i) => <li key={i}>{a}</li>)}
+                    </ul>
+                  </div>
+                )}
+
+                {d.places?.length > 0 && (
+                  <div className="mb-2">
+                    <div className="text-secondary small fw-semibold">Places</div>
+                    <div className="mt-1 small">
+                      {d.places.map((p, i) => (
+                        <span key={i} className="badge bg-light text-muted me-1 mb-1">{p}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {d.meals && (d.meals.breakfast || d.meals.lunch || d.meals.dinner) && (
+                  <div className="mb-2">
+                    <div className="text-secondary small fw-semibold">Meals</div>
+                    <div className="mt-1 small">
+                      {d.meals.breakfast && <div><strong>Breakfast:</strong> {d.meals.breakfast}</div>}
+                      {d.meals.lunch && <div><strong>Lunch:</strong> {d.meals.lunch}</div>}
+                      {d.meals.dinner && <div><strong>Dinner:</strong> {d.meals.dinner}</div>}
+                    </div>
+                  </div>
+                )}
+
+                {d.tips && d.tips.length > 0 && (
+                  <div className="mt-2">
+                    <div className="text-secondary small fw-semibold">Tips</div>
+                    <ul className="mb-0 mt-1 small">
+                      {d.tips.map((t, i) => <li key={i}>{t}</li>)}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   const handleDownload = () => {
     const lines = [];
     if (planData) {
@@ -20,23 +91,24 @@ export default function GeneratedPlan({ plan, destination, hotels = [] }) {
         lines.push(planData.summary);
         lines.push('');
       }
-      
+
       planData.days.forEach(day => {
-        lines.push(`Day ${day.day}: ${day.title}`);
+        const cleanTitle = day.title.replace(/^Day\s+\d+:\s*/, '');
+        lines.push(`Day ${day.day}: ${cleanTitle}`);
         lines.push('');
-        
+
         if (day.activities?.length) {
           lines.push('Activities:');
           day.activities.forEach(a => lines.push(`  - ${a}`));
           lines.push('');
         }
-        
+
         if (day.places?.length) {
           lines.push('Places to Visit:');
           day.places.forEach(p => lines.push(`  - ${p}`));
           lines.push('');
         }
-        
+
         if (day.meals) {
           lines.push('Meals:');
           if (day.meals.breakfast) lines.push(`  - Breakfast: ${day.meals.breakfast}`);
@@ -44,7 +116,7 @@ export default function GeneratedPlan({ plan, destination, hotels = [] }) {
           if (day.meals.dinner) lines.push(`  - Dinner: ${day.meals.dinner}`);
           lines.push('');
         }
-        
+
         if (day.tips?.length) {
           lines.push('Tips:');
           day.tips.forEach(t => lines.push(`  - ${t}`));
@@ -52,7 +124,7 @@ export default function GeneratedPlan({ plan, destination, hotels = [] }) {
         }
       });
     }
-    
+
     if (hotels.length > 0) {
       lines.push('');
       lines.push('RECOMMENDED HOTELS');
@@ -66,7 +138,7 @@ export default function GeneratedPlan({ plan, destination, hotels = [] }) {
         lines.push('');
       });
     }
-    
+
     const content = lines.join('\n');
     const blob = new Blob([content], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
@@ -77,6 +149,102 @@ export default function GeneratedPlan({ plan, destination, hotels = [] }) {
     URL.revokeObjectURL(url);
   };
 
+  const handleSave = async () => {
+    try {
+      await savePlan({
+        destination,
+        startDate: startDate || new Date().toISOString().split('T')[0],
+        days: days || planData?.days?.length || 0,
+        interests: interests || 'AI Generated',
+        plan: planData,
+        prompt: prompt || `Destination: ${destination}. Start Date: ${startDate}. Days: ${days}. Interests: ${interests}.`
+      });
+      alert('Plan saved successfully!');
+
+      // After saving, fetch and show history for this destination
+      try {
+        const all = await fetchPlans();
+        const related = all.filter(p => p.destination === destination);
+        setHistoryEntries(related);
+        setShowHistory(true);
+      } catch (e) {
+        console.error('Failed to fetch history after save', e);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Failed to save plan');
+    }
+  };
+
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyEntries, setHistoryEntries] = useState([]);
+  const [expandedIds, setExpandedIds] = useState([]);
+
+  const handleShowHistory = async () => {
+    try {
+      const all = await fetchPlans();
+      const related = all.filter(p => p.destination === destination);
+      setHistoryEntries(related);
+      setShowHistory(true);
+    } catch (e) {
+      console.error('Failed to load history', e);
+      alert('Failed to load history');
+    }
+  };
+
+  const handleDeleteEntry = async (id) => {
+    if (!confirm('Delete this history entry?')) return;
+    try {
+      await deletePlan(id);
+      const all = await fetchPlans();
+      const related = all.filter(p => p.destination === destination);
+      setHistoryEntries(related);
+      // notify other components (Dashboard) about update
+      window.dispatchEvent(new CustomEvent('plansUpdated', { detail: all }));
+    } catch (e) {
+      console.error('Failed to delete entry', e);
+      alert('Failed to delete entry');
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    if (!confirm('Delete ALL saved history? This cannot be undone.')) return;
+    try {
+      await deleteAllPlans();
+      setHistoryEntries([]);
+      setShowHistory(false);
+      window.dispatchEvent(new CustomEvent('plansUpdated', { detail: [] }));
+      alert('All history deleted');
+    } catch (e) {
+      console.error('Failed to delete all entries', e);
+      alert('Failed to delete all entries');
+    }
+  };
+
+  const toggleExpand = (id) => {
+    setExpandedIds(prev => prev.includes(id) ? prev.filter(x=>x!==id) : [...prev, id]);
+  };
+
+  const copyToClipboard = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      alert('Copied to clipboard');
+    } catch (e) {
+      console.error('Clipboard error', e);
+      alert('Failed to copy');
+    }
+  };
+
+  const downloadJson = (obj, filename) => {
+    const content = JSON.stringify(obj, null, 2);
+    const blob = new Blob([content], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
   const handleShare = async () => {
     const lines = [];
     if (planData) {
@@ -86,9 +254,10 @@ export default function GeneratedPlan({ plan, destination, hotels = [] }) {
         lines.push(planData.summary);
         lines.push('');
       }
-      
+
       planData.days.forEach(day => {
-        lines.push(`Day ${day.day}: ${day.title}`);
+        const cleanTitle = day.title.replace(/^Day\s+\d+:\s*/, '');
+        lines.push(`Day ${day.day}: ${cleanTitle}`);
         if (day.activities?.length) {
           lines.push('Activities: ' + day.activities.join(', '));
         }
@@ -98,16 +267,16 @@ export default function GeneratedPlan({ plan, destination, hotels = [] }) {
         lines.push('');
       });
     }
-    
+
     if (hotels.length > 0) {
       lines.push('Top Hotels:');
       hotels.slice(0, 5).forEach(hotel => {
         lines.push(`- ${hotel.name}${hotel.stars ? ' (' + '⭐'.repeat(Math.min(parseInt(hotel.stars), 5)) + ')' : ''}`);
       });
     }
-    
+
     const shareText = lines.join('\n');
-    
+
     if (navigator.share) {
       try {
         await navigator.share({
@@ -204,6 +373,19 @@ export default function GeneratedPlan({ plan, destination, hotels = [] }) {
             </div>
             <div className="d-flex gap-2 flex-shrink-0">
               <button
+                onClick={handleSave}
+                className="btn btn-success btn-sm rounded-3 btn-action"
+              >
+                Save
+              </button>
+              <button
+                onClick={handleShowHistory}
+                className="btn btn-outline-light btn-sm rounded-3 btn-action"
+                title="History"
+              >
+                History
+              </button>
+              <button
                 onClick={handleShare}
                 className="btn btn-light btn-sm rounded-3 btn-action d-flex align-items-center gap-1"
                 title="Share"
@@ -231,30 +413,30 @@ export default function GeneratedPlan({ plan, destination, hotels = [] }) {
               <div className="mb-4">
                 <h1 className="h3 fw-bold text-break">{planData.title || `Trip to ${destination}`}</h1>
               </div>
-              
+
               {/* Summary */}
               {planData.summary && (
                 <div className="mb-4">
                   <p className="lead text-muted mb-0">{planData.summary}</p>
                 </div>
               )}
-              
+
               {/* Days */}
               {planData.days && planData.days.map((day, index) => (
                 <div key={index} className="mb-5 pb-4 border-bottom" style={{ ':last-child': { borderBottom: 'none' } }}>
                   {/* Day Header */}
                   <div className="d-flex align-items-center gap-2 gap-md-3 mb-4">
-                    <div className="day-header-box d-flex align-items-center justify-content-center rounded-3 flex-shrink-0" 
-                         style={{ width: '50px', height: '50px' }}>
+                    <div className="day-header-box d-flex align-items-center justify-content-center rounded-3 flex-shrink-0"
+                      style={{ width: '50px', height: '50px' }}>
                       <Calendar className="text-white" size={24} />
                     </div>
                     <div>
                       <h5 className="mb-0 fw-bold text-break">
-                        Day {day.day}: {day.title}
+                        Day {day.day}: {day.title.replace(/^Day\s+\d+:\s*/, '')}
                       </h5>
                     </div>
                   </div>
-                  
+
                   {/* Activities */}
                   {day.activities && day.activities.length > 0 && (
                     <div>
@@ -269,7 +451,7 @@ export default function GeneratedPlan({ plan, destination, hotels = [] }) {
                       </div>
                     </div>
                   )}
-                  
+
                   {/* Places to Visit */}
                   {day.places && day.places.length > 0 && (
                     <div>
@@ -283,7 +465,7 @@ export default function GeneratedPlan({ plan, destination, hotels = [] }) {
                       </div>
                     </div>
                   )}
-                  
+
                   {/* Meals */}
                   {day.meals && (day.meals.breakfast || day.meals.lunch || day.meals.dinner) && (
                     <div>
@@ -310,7 +492,7 @@ export default function GeneratedPlan({ plan, destination, hotels = [] }) {
                       </div>
                     </div>
                   )}
-                  
+
                   {/* Tips */}
                   {day.tips && day.tips.length > 0 && (
                     <div>
@@ -331,7 +513,7 @@ export default function GeneratedPlan({ plan, destination, hotels = [] }) {
           ) : (
             <p className="text-muted">Unable to format itinerary</p>
           )}
-          
+
           {/* Hotels Section */}
           {hotels.length > 0 && (
             <div className="mt-5 pt-4 border-top">
@@ -383,6 +565,114 @@ export default function GeneratedPlan({ plan, destination, hotels = [] }) {
           )}
         </div>
       </div>
+
+      {/* History Modal */}
+      {showHistory && (
+        <div
+          className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+          style={{
+            background: "rgba(15, 23, 42, 0.65)",
+            backdropFilter: "blur(6px)",
+            zIndex: 9999,
+          }}
+        >
+          <div
+            className="bg-white rounded-4 shadow-lg p-4"
+            style={{
+              width: "95%",
+              maxWidth: "950px",
+              maxHeight: "85vh",
+              overflowY: "auto",
+            }}
+          >
+            {/* Header */}
+            <div className="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
+              <div>
+                <h4 className="fw-bold mb-1">📜 Travel History</h4>
+                <p className="text-muted mb-0 small">
+                  Destination: <span className="fw-semibold">{destination}</span>
+                </p>
+              </div>
+
+              <button
+                className="btn btn-sm btn-outline-danger rounded-pill px-3"
+                onClick={() => setShowHistory(false)}
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            {/* Empty State */}
+            {historyEntries.length === 0 && (
+              <div className="text-center py-5 text-muted">
+                <h6>No saved history found</h6>
+                <p className="small">Your generated itineraries will appear here.</p>
+              </div>
+            )}
+
+            {/* History Cards - improved layout */}
+            <div className="row g-3">
+              {historyEntries.map((h) => {
+                const isExpanded = expandedIds.includes(h.id);
+                return (
+                  <div key={h.id} className="col-12">
+                    <div className="d-flex shadow-sm rounded-4 overflow-hidden" style={{ border: '1px solid #e6e9ef' }}>
+                      <div style={{ width: 6, background: 'linear-gradient(180deg,#667eea,#764ba2)' }} />
+                      <div className="flex-grow-1 p-4 bg-white">
+                        <div className="d-flex justify-content-between align-items-start mb-2">
+                          <div>
+                            <h5 className="mb-1 fw-bold text-capitalize">{h.destination}</h5>
+                            <div className="small text-muted">Saved: {new Date(h.created_at ?? h.start_date).toLocaleString()}</div>
+                          </div>
+                          <div className="text-end">
+                            <div className="mb-2">
+                              <span className="badge bg-info text-dark me-2">{h.days} days</span>
+                              {h.interests && <span className="badge bg-light text-muted">{h.interests}</span>}
+                            </div>
+                            <div className="d-flex gap-2">
+                              <button className="btn btn-sm btn-outline-secondary" onClick={() => copyToClipboard(h.prompt || '')} title="Copy prompt">
+                                <Copy size={14} />
+                              </button>
+                              <button className="btn btn-sm btn-outline-secondary" onClick={() => downloadJson(h.plan || {}, `${h.destination || 'plan'}-${h.id || ''}.json`)} title="Download result">
+                                <Download size={14} />
+                              </button>
+                              <button className="btn btn-sm btn-outline-danger" onClick={() => handleDeleteEntry(h.id)} title="Delete">
+                                <Trash size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mb-3">
+                          <div className="d-flex justify-content-between align-items-center">
+                            <div className="fw-semibold text-secondary small">🧠 Prompt</div>
+                            <button className="btn btn-sm btn-link" onClick={() => toggleExpand(h.id)}>{isExpanded ? 'Collapse' : 'Expand'}</button>
+                          </div>
+
+                          <div className={`mt-2 rounded-3 p-3`} style={{ background: '#f8fafc', whiteSpace: 'pre-wrap' }}>
+                            {isExpanded ? (
+                              <pre className="mb-0 small" style={{ whiteSpace: 'pre-wrap' }}>{h.prompt}</pre>
+                            ) : (
+                              <div className="small text-truncate" style={{ maxWidth: '100%' }}>{h.prompt}</div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="fw-semibold text-secondary small mb-2">🗺 Generated Plan</div>
+                          <div className="rounded-3 p-3 border" style={{ background: '#ffffff', fontFamily: 'inherit', maxHeight: isExpanded ? '500px' : '160px', overflowY: 'auto', whiteSpace: 'normal' }}>
+                            <PlanPreview planObj={h.plan} compact={!isExpanded} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

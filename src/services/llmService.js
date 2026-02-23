@@ -1,5 +1,5 @@
 export async function generateTravelPlan({ destination, startDate, days, interests }) {
-  const response = await fetch("http://172.16.102.167:1234/v1/chat/completions", {
+  const response = await fetch("http://172.16.102.117:1234/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -8,14 +8,14 @@ export async function generateTravelPlan({ destination, startDate, days, interes
         {
           role: "system",
           content: `You are a travel AI that creates detailed multi-day itineraries. 
-          Format your response EXACTLY as JSON with this structure:
+          Format your response EXACTLY as JSON with this structure. IMPORTANT: The "title" field should contain ONLY the location/activity name, NOT "Day X:". For example, use "Shibuya & Asakusa", not "Day 1: Shibuya & Asakusa".
           {
             "title": "Trip to [destination]",
             "summary": "Brief overview",
             "days": [
               {
                 "day": 1,
-                "title": "Day Title",
+                "title": "Location or main activity (without 'Day X:')",
                 "activities": ["activity1", "activity2"],
                 "places": ["place1", "place2"],
                 "meals": {"breakfast": "", "lunch": "", "dinner": ""},
@@ -30,7 +30,7 @@ export async function generateTravelPlan({ destination, startDate, days, interes
         }
       ],
       temperature: 0.7,
-      max_tokens: 1200
+      max_tokens: 6000,
     })
   });
 

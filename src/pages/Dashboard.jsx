@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar, MapPin, Sparkles, Clock, Loader2, Plus, Minus } from 'lucide-react';
 import { generateTravelPlan } from '../services/llmService';
+import { fetchPlans, deletePlan } from '../services/apiService';
 import GeneratedPlan from '../components/ui/GeneratedPlan';
+import SavedPlansList from '../components/SavedPlansList';
 import MapPreview from '../components/ui/MapPreview';
 
 export default function Dashboard() {
@@ -15,6 +17,42 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [extractedPlaces, setExtractedPlaces] = useState([]);
   const [hotels, setHotels] = useState([]);
+  const [savedPlans, setSavedPlans] = useState([]);
+
+    useEffect(() => {
+      (async () => {
+        try {
+          const data = await fetchPlans();
+          setSavedPlans(data);
+        } catch (err) {
+          console.error('Failed to load saved plans', err);
+        }
+      })();
+
+      const onPlansUpdated = (e) => {
+        if (Array.isArray(e?.detail)) {
+          setSavedPlans(e.detail);
+        } else {
+          // fallback - refetch
+          fetchPlans().then(d => setSavedPlans(d)).catch(()=>{});
+        }
+      };
+
+      window.addEventListener('plansUpdated', onPlansUpdated);
+
+      return () => window.removeEventListener('plansUpdated', onPlansUpdated);
+    }, []);
+
+  const handleDelete = async (id) => {
+    if (!confirm('Delete this saved plan?')) return;
+    try {
+      await deletePlan(id);
+      setSavedPlans(prev => prev.filter(p => p.id !== id));
+    } catch (err) {
+      console.error('Failed to delete plan', err);
+      alert('Failed to delete plan');
+    }
+  };
 
   const handleGenerate = async () => {
     if (!formData.destination || !formData.startDate) {
@@ -71,7 +109,7 @@ export default function Dashboard() {
   };
 
   const incrementDays = () => {
-    setFormData({ ...formData, days: Math.min(formData.days + 1, 30) });
+    setFormData({ ...formData, days: Math.min(formData.days + 1, 6) });
   };
 
   const decrementDays = () => {
@@ -280,7 +318,7 @@ export default function Dashboard() {
                     <small className="text-muted">Click the calendar icon to choose a date</small>
                   </div>
 
-                  {/* Number of Days - Custom Input with +/- buttons */}
+                  {/* Number of Days - +/- buttons */}
                   <div className="mb-3">
                     <label className="form-label fw-medium small">Number of Days</label>
                     <div className="number-input-wrapper">
@@ -299,24 +337,12 @@ export default function Dashboard() {
                         type="button"
                         className="number-btn"
                         onClick={incrementDays}
-                        disabled={formData.days >= 30}
+                        disabled={formData.days >= 6}
                       >
                         <Plus size={16} style={{ color: '#667eea' }} />
                       </button>
-                      <input
-                        type="number"
-                        className="form-control"
-                        value={formData.days}
-                        onChange={(e) => {
-                          const value = parseInt(e.target.value) || 1;
-                          setFormData({ ...formData, days: Math.max(1, Math.min(30, value)) });
-                        }}
-                        min="1"
-                        max="30"
-                        style={{ maxWidth: '80px' }}
-                      />
                     </div>
-                    <small className="text-muted">Use +/- buttons or type a number (1-30)</small>
+                    <small className="text-muted">Use +/- buttons to adjust (1-6 days)</small>
                   </div>
 
                   {/* Interests */}
@@ -377,12 +403,28 @@ export default function Dashboard() {
                           places={extractedPlaces}
                           interests={formData.interests}
                           onHotelsFound={setHotels}
+                          plans={savedPlans}
+                          onDelete={handleDelete}
                         />
                       </div>
                     )}
                     
                     {/* Generated Plan */}
-                    <GeneratedPlan plan={plan} destination={formData.destination} hotels={hotels} />
+                    <GeneratedPlan
+                      plan={plan}
+                      destination={formData.destination}
+                      hotels={hotels}
+                      startDate={formData.startDate}
+                      days={formData.days}
+                      interests={formData.interests}
+                      prompt={`Destination: ${formData.destination}. Start Date: ${formData.startDate}. Days: ${formData.days}. Interests: ${formData.interests}.`}
+                    />
+                    {/* Saved Plans (show below generated plan) */}
+                    {savedPlans && savedPlans.length > 0 && (
+                      <div className="mt-4">
+                        <SavedPlansList plans={savedPlans} onDelete={handleDelete} />
+                      </div>
+                    )}
                   </>
                 )}
 

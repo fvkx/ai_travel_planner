@@ -14,7 +14,7 @@ export default function SavedPlansList({ plans, onDelete }) {
               <h3 className="font-semibold">{plan.destination}</h3>
               <p className="text-sm">{plan.startDate} • {plan.days} days • {plan.interests}</p>
               <pre className="text-xs mt-2 whitespace-pre-wrap max-h-40 overflow-auto">
-                {plan.plan}
+                {JSON.stringify(plan.plan, null, 2)}
               </pre>
             </div>
 
