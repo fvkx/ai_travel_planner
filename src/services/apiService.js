@@ -39,4 +39,26 @@ export async function deleteAllPlans() {
   return res.json();
 }
 
-export default { fetchPlans, savePlan, deletePlan, deleteAllPlans };
+export async function registerUser(payload) {
+  const res = await fetch(`${API_BASE}/register.php`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) throw new Error('Failed to register');
+  return res.json();
+}
+
+export async function loginUser(payload) {
+  const res = await fetch(`${API_BASE}/login.php`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) throw new Error('Failed to login');
+  return res.json();
+}
+
+export default { fetchPlans, savePlan, deletePlan, deleteAllPlans, registerUser, loginUser };
