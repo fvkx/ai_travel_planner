@@ -15,7 +15,11 @@ export async function savePlan(payload) {
   });
 
   if (!res.ok) throw new Error('Failed to save plan');
-  return res.json();
+  const data = await res.json();
+  if (data.status === 'error') {
+    throw new Error(data.message || 'Failed to save plan');
+  }
+  return data;
 }
 
 export async function deletePlan(id) {
@@ -26,7 +30,11 @@ export async function deletePlan(id) {
   });
 
   if (!res.ok) throw new Error('Failed to delete plan');
-  return res.json();
+  const data = await res.json();
+  if (data.status === 'error') {
+    throw new Error(data.message || 'Failed to delete plan');
+  }
+  return data;
 }
 
 export async function deleteAllPlans() {
@@ -36,7 +44,11 @@ export async function deleteAllPlans() {
   });
 
   if (!res.ok) throw new Error('Failed to delete all plans');
-  return res.json();
+  const data = await res.json();
+  if (data.status === 'error') {
+    throw new Error(data.message || 'Failed to delete all plans');
+  }
+  return data;
 }
 
 export async function registerUser(payload) {

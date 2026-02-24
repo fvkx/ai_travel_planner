@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/apiService';
+import { setUser } from '../services/storageService';
 import { Sparkles, Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
 
 export default function Login() {
@@ -24,7 +25,7 @@ export default function Login() {
       const res = await api.loginUser({ email: form.email, password: form.password });
       setLoading(false);
       if (res.status === 'success') {
-        try { localStorage.setItem('user', JSON.stringify(res.user)); } catch {}
+        setUser(res.user);
         navigate('/dashboard');
       } else {
         setError(res.message || 'Invalid credentials');

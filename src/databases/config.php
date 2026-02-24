@@ -2,7 +2,7 @@
 $host = "127.0.0.1:3309";
 $user = "root";
 $password = "";   // default in XAMPP
-$database = "airesult";
+$database = "travel_planner";
 
 $conn = new mysqli($host, $user, $password, $database);
 

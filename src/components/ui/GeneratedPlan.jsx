@@ -171,8 +171,8 @@ export default function GeneratedPlan({ plan, destination, hotels = [], startDat
         console.error('Failed to fetch history after save', e);
       }
     } catch (err) {
-      console.error(err);
-      alert('Failed to save plan');
+      console.error('Save error:', err);
+      alert(`Failed to save plan: ${err.message || 'Unknown error'}`);
     }
   };
 

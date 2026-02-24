@@ -7,7 +7,7 @@ include 'config.php';
 
 $data = json_decode(file_get_contents("php://input"), true);
 
-$email = trim($data['email'] ?? '');
+$email    = trim($data['email'] ?? '');
 $password = $data['password'] ?? '';
 
 if (!$email || !$password) {
@@ -16,7 +16,8 @@ if (!$email || !$password) {
     exit;
 }
 
-$stmt = $conn->prepare("SELECT id, first_name, last_name, email, password_hash FROM useracc WHERE email = ? LIMIT 1");
+// ✅ Column name must match your DB: 'password' not 'password_hash'
+$stmt = $conn->prepare("SELECT id, firstName, lastName, email, password FROM useracc WHERE email = ? LIMIT 1");
 $stmt->bind_param("s", $email);
 $stmt->execute();
 $res = $stmt->get_result();
@@ -29,9 +30,9 @@ if (!$res || $res->num_rows === 0) {
 }
 
 $row = $res->fetch_assoc();
-if (password_verify($password, $row['password_hash'])) {
-    // remove sensitive fields
-    unset($row['password_hash']);
+
+if (password_verify($password, $row['password'])) {
+    unset($row['password']); // ✅ Never send password to frontend
     echo json_encode(["status" => "success", "user" => $row]);
 } else {
     echo json_encode(["status" => "error", "message" => "Invalid credentials"]);

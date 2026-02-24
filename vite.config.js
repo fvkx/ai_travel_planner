@@ -8,9 +8,9 @@ export default defineConfig({
     proxy: {
       // Proxy /api/* to your PHP backend. Adjust the rewrite target if your PHP files are hosted elsewhere.
       '/api': {
-        target: 'http://localhost',
+        target: 'http://localhost/ai_travel_planner',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '/ai_travel_planner/src/databases')
+        rewrite: (path) => path.replace(/^\/api/, '/src/databases')
       }
     }
   }
